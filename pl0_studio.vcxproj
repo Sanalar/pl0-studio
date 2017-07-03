@@ -197,6 +197,8 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pl0\PL0Parser.h" />
+    <ClInclude Include="pl0\PL0Types.h" />
     <ClInclude Include="ui/ChildFrm.h" />
     <ClInclude Include="ui/ClassView.h" />
     <ClInclude Include="ui/CntrItem.h" />
@@ -212,6 +214,7 @@
     <ClInclude Include="ui/ViewTree.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="pl0\PL0Parser.cpp" />
     <ClCompile Include="ui/ChildFrm.cpp" />
     <ClCompile Include="ui/ClassView.cpp" />
     <ClCompile Include="ui/CntrItem.cpp" />

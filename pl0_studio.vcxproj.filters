@@ -67,6 +67,12 @@
     <ClInclude Include="ui/ViewTree.h">
       <Filter>其它窗格</Filter>
     </ClInclude>
+    <ClInclude Include="pl0\PL0Types.h">
+      <Filter>pl0</Filter>
+    </ClInclude>
+    <ClInclude Include="pl0\PL0Parser.h">
+      <Filter>pl0</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ui/ChildFrm.cpp">
@@ -102,6 +108,9 @@
     <ClCompile Include="ui/ViewTree.cpp">
       <Filter>其它窗格</Filter>
     </ClCompile>
+    <ClCompile Include="pl0\PL0Parser.cpp">
+      <Filter>pl0</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="ui/pl0_studio.reg" />
@@ -110,7 +119,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="pl0_studio.rc">
+    <ResourceCompile Include="ui\pl0_studio.rc">
       <Filter>资源文件</Filter>
     </ResourceCompile>
   </ItemGroup>
@@ -166,9 +175,6 @@
     <Image Include="res\info.bmp">
       <Filter>资源文件</Filter>
     </Image>
-    <Image Include="UserImages.bmp">
-      <Filter>资源文件</Filter>
-    </Image>
     <Image Include="res\pl0_studioDoc.ico">
       <Filter>资源文件</Filter>
     </Image>
@@ -179,6 +185,9 @@
       <Filter>资源文件</Filter>
     </Image>
     <Image Include="res\Toolbar256.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\UserImages.bmp">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

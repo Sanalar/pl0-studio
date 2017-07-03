@@ -39,7 +39,13 @@
 
 #include <afxrich.h>            // MFC Rich Edit ¿‡
 
+// STL
+#include <unordered_map>
+#include <vector>
+using namespace std;
+using namespace stdext;
 
+#include "PL0Types.h"
 
 
 
