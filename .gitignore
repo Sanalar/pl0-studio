@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+/pl0_studio.vcxproj.user
+/obj
+/ipch
+/bin
+/pl0_studio.VC.db
+/.vs

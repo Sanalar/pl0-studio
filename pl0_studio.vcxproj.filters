@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="框架">
+      <UniqueIdentifier>{e7b08ad3-3514-4ab7-abf2-217fcc39fcd0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="编辑器">
+      <UniqueIdentifier>{0adfedfb-e080-46ec-89c8-8fa3a122854d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="pl0">
+      <UniqueIdentifier>{8b77a557-b6a4-484b-a0e3-2c37eb63cca6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="输出">
+      <UniqueIdentifier>{298c5cce-8e20-4860-9ed5-4cc68f5a6c80}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="执行器">
+      <UniqueIdentifier>{f9b8f61e-2eee-44f3-b098-5e40db4f76ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="其它窗格">
+      <UniqueIdentifier>{82170239-d4c9-4389-84bf-87559b87f1e2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ui/ChildFrm.h">
+      <Filter>框架</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/MainFrm.h">
+      <Filter>框架</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/OutputWnd.h">
+      <Filter>输出</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/ClassView.h">
+      <Filter>其它窗格</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/CntrItem.h">
+      <Filter>编辑器</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/FileView.h">
+      <Filter>其它窗格</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/pl0_studio.h">
+      <Filter>框架</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/PL0StudioDoc.h">
+      <Filter>编辑器</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/PL0StudioView.h">
+      <Filter>编辑器</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/Resource.h">
+      <Filter>框架</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/stdafx.h">
+      <Filter>框架</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/targetver.h">
+      <Filter>框架</Filter>
+    </ClInclude>
+    <ClInclude Include="ui/ViewTree.h">
+      <Filter>其它窗格</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ui/ChildFrm.cpp">
+      <Filter>框架</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/ClassView.cpp">
+      <Filter>其它窗格</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/CntrItem.cpp">
+      <Filter>编辑器</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/FileView.cpp">
+      <Filter>其它窗格</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/MainFrm.cpp">
+      <Filter>框架</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/OutputWnd.cpp">
+      <Filter>输出</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/pl0_studio.cpp">
+      <Filter>框架</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/PL0StudioDoc.cpp">
+      <Filter>编辑器</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/PL0StudioView.cpp">
+      <Filter>编辑器</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/stdafx.cpp">
+      <Filter>框架</Filter>
+    </ClCompile>
+    <ClCompile Include="ui/ViewTree.cpp">
+      <Filter>其它窗格</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ui/pl0_studio.reg" />
+    <None Include="res/pl0_studio.rc2">
+      <Filter>资源文件</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="pl0_studio.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\file_view.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\file_view_hc.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\class_view.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\class_view_hc.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\fileview.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\fileview_hc.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\classview.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\classview_hc.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\explorer.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\explorer_hc.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\sort.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\sort_hc.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\menuimages.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\menuimages_hc.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\output_wnd.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\output_wnd_hc.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\info.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="UserImages.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\pl0_studioDoc.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\pl0_studio.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\Toolbar.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\Toolbar256.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+</Project>
