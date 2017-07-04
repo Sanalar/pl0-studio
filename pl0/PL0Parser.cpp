@@ -37,6 +37,7 @@ void InitKeywordsMap(unordered_map<const wchar_t*, Keyword>& m_keywords)
 	M(L"write", Keyword_write);
 	M(L"return", Keyword_return);
 	M(L"odd", Keyword_odd);
+	M(L"step", Keyword_step);
 #undef M
 }
 
@@ -456,6 +457,7 @@ void PL0Parser::statement()
 		returnStatement();
 		break;
 	case Keyword_call:
+		getIdentityToken();
 	case Structure_functionName:
 	case Structure_procudureName:
 		callStatement();
@@ -563,3 +565,343 @@ void PL0Parser::condition()
 		expression();
 	}
 }
+
+// <表达式> ::= [+|-]<项>{<加法运算符><项>}
+void PL0Parser::expression()
+{
+	if (match(L"+") || match(L"-"))
+	{
+		
+	}
+
+	factor();
+
+	while (match(L"+") || match(L"-"))
+	{
+		factor();
+	}
+}
+
+// <项> ::= <因子>{<乘法运算符><因子>}
+void PL0Parser::factor()
+{
+	atom();
+
+	while (match(L"*") || match(L"/"))
+	{
+		atom();
+	}
+}
+
+// <因子> ::= <左值表达式>|<字面量>|<常量>|'(' <表达式> ')'|<调用语句>
+/*
+	variable, const_name -> <左值表达式>
+	number, string       -> <字面量>
+	(                    -> <括号表达式>
+	call, func, proc     -> <调用语句>
+*/
+void PL0Parser::atom()
+{
+	if (match(L"("))
+	{
+		expression();
+		if (!match(L")"))
+		{
+			error(PL0Error_wantRParen);
+		}
+	}
+	else if (isdigit(*m_p) || *m_p == '\"')
+	{
+		literalValue();
+	}
+	else
+	{
+		Token token = getIdentityToken();
+		switch (token.detailType())
+		{
+		case Keyword_call:
+			getIdentityToken();
+		case Structure_functionName:
+		case Structure_procudureName:
+			callStatement();
+			break;
+		case Structure_constVariable:
+			break;
+		case Structure_variable:
+			leftValueExpression(false);
+			break;
+		}
+	}
+}
+
+// <左值表达式> ::= <标识符>['['<表达式>'{,<表达式>}']'][. <左值表达式>]
+void PL0Parser::leftValueExpression(bool needToken)
+{
+	Token token;
+	if (needToken)
+		token = getIdentityToken();
+	else
+		token = getLastToken();
+
+	if (token.detailType() != Structure_variable)
+	{
+		error(PL0Error_wantVariable);
+	}
+
+	if (match(L"["))
+	{
+		expression();
+		while (match(L","))
+		{
+			expression();
+		}
+
+		if (!match(L"]"))
+		{
+			error(PL0Error_wantRSquareBracket);
+		}
+	}
+
+	if (match(L"."))
+	{
+		leftValueExpression(true);
+	}
+}
+
+// <CASE条件语句> ::= CASE <表达式> OF <CASE从句>{; <CASE从句>} [; ELSE <语句>]; END
+void PL0Parser::caseStatement()
+{
+	// 进入该函数表明 case 已经被正确识别
+	expression();
+
+	if (!matchKeyword(Keyword_of))
+	{
+		error(PL0Error_wantOf);
+	}
+
+	do {
+		caseSubStatement();
+		if (!match(L";"))
+		{
+			error(PL0Error_wantSemicolon);
+		}
+	} while (!matchKeyword(Keyword_end) && !matchKeyword(Keyword_else));
+
+	Token token = getLastToken();
+	if (token.detailType() == Keyword_else)
+	{
+		statement();
+		if (!match(L";"))
+		{
+			error(PL0Error_wantSemicolon);
+		}
+		if (!matchKeyword(Keyword_end))
+		{
+			error(PL0Error_wantEnd);
+		}
+	}
+}
+
+// <CASE从句> ::= (<常量>|<字面量>):<语句>
+void PL0Parser::caseSubStatement()
+{
+	Token token;
+	if (isalpha(*m_p) || *m_p == '_')
+	{
+		token = getConstNameToken();
+		if (token.tokenType() == Structure_error)
+		{
+			error(PL0Error_wantConstName);
+		}
+	}
+	else if (isdigit(*m_p))
+	{
+		token = getNumberToken();
+		if (token.tokenType() == Structure_error)
+		{
+			error(PL0Error_wantNumber);
+		}
+	}
+	else
+	{
+		error(PL0Error_wantNumber);
+	}
+
+	if (!match(L":"))
+	{
+		error(PL0Error_wantColon);
+	}
+
+	statement();
+}
+
+// <读语句> ::= READ'('<左值表达式>{, <左值表达式>}')'
+void PL0Parser::readStatement()
+{
+	// 进入该函数的时候，read 已经成功匹配
+	if (!match(L"("))
+	{
+		error(PL0Error_wantLParen);
+	}
+
+	do 
+	{
+		leftValueExpression(true);
+	} while (match(L","));
+
+	if (!match(L")"))
+	{
+		error(PL0Error_wantRParen);
+	}
+}
+
+// <写语句> ::= WRITE'('<表达式>{, <表达式>}')'
+void PL0Parser::writeStatement()
+{
+	// 进入该函数的时候，write 关键字已经被成功匹配
+	if (!match(L"("))
+	{
+		error(PL0Error_wantLParen);
+	}
+
+	do
+	{
+		expression();
+	} while (match(L","));
+
+	if (!match(L")"))
+	{
+		error(PL0Error_wantRParen);
+	}
+}
+
+// <当型循环语句> ::= WHILE<条件表达式>DO<语句>
+void PL0Parser::whileStatement()
+{
+	conditionExpression();
+	
+	if (!matchKeyword(Keyword_do))
+	{
+		error(PL0Error_wantDo);
+	}
+
+	statement();
+}
+
+// <直到型循环语句> ::= REPEAT <语句> UNTIL <条件表达式>
+void PL0Parser::repeatStatement()
+{
+	// 进入这个函数的时候，repeat 关键字已经成功识别
+	statement();
+
+	if (!matchKeyword(Keyword_until))
+	{
+		error(PL0Error_wantUntil);
+	}
+
+	conditionExpression();
+}
+
+// <FOR循环语句> ::= FOR <左值表达式> := <表达式> [STEP <表达式>] UNTIL <表达式> DO <语句>
+void PL0Parser::forStatement()
+{
+	// 进入这个函数的时候，for 关键字已经成功识别
+	leftValueExpression(true);
+
+	if (!match(L":="))
+	{
+		error(PL0Error_wantAssign);
+	}
+
+	expression();
+
+	if (matchKeyword(Keyword_step))
+	{
+		expression();
+	}
+
+	if (!matchKeyword(Keyword_until))
+	{
+		error(PL0Error_wantUntil);
+	}
+
+	expression();
+
+	if (!matchKeyword(Keyword_do))
+	{
+		error(PL0Error_wantDo);
+	}
+
+	statement();
+}
+
+// <复合语句> ::= BEGIN<语句>{; <语句>}END
+void PL0Parser::beginStatement()
+{
+	// 进入该函数的时候，begin 关键字已经成功匹配
+	statement();
+
+	while (match(L";"))
+	{
+		if (matchKeyword(Keyword_end))
+			return;
+
+		statement();
+	}
+
+	if (!matchKeyword(Keyword_end))
+	{
+		error(PL0Error_wantEnd);
+	}
+}
+
+// <返回语句> ::= RETURN <表达式>
+void PL0Parser::returnStatement()
+{
+	// 进入刚函数的时候，return 关键字已经成功匹配
+	expression();
+}
+
+// <调用语句> ::= [CALL]<标识符>['('[<表达式> {,<表达式>}'])']
+void PL0Parser::callStatement()
+{
+	Token token = getLastToken();
+
+	if (token.detailType() != Structure_functionName
+		&& token.detailType() != Structure_procudureName)
+	{
+		if (match(L"("))
+		{
+			if (match(L")"))
+				return;
+
+			do
+			{
+				expression();
+			} while (match(L","));
+
+			if (!match(L")"))
+			{
+				error(PL0Error_wantRParen);
+			}
+		}
+	}
+	else
+	{
+		error(PL0Error_wantIdentity);
+	}
+}
+
+// <赋值语句> ::= <左值表达式>:=<表达式>
+void PL0Parser::assignStatement()
+{
+	leftValueExpression(false);
+
+	if (!match(L":="))
+	{
+		error(PL0Error_wantAssign);
+	}
+
+	expression();
+}
+

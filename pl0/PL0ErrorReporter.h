@@ -20,6 +20,13 @@ enum PL0Error
 	PL0Error_wantRParen,
 	PL0Error_wantThen,
 	PL0Error_wantConditionOperator,
+	PL0Error_wantVariable,
+	PL0Error_wantOf,
+	PL0Error_wantEnd,
+	PL0Error_wantConstName,
+	PL0Error_wantDo,
+	PL0Error_wantUntil,
+	PL0Error_wantAssign,
 };
 
 enum PL0Warning

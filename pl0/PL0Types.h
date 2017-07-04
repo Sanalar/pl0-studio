@@ -49,6 +49,7 @@ enum Keyword
 	Keyword_write,
 	Keyword_return,
 	Keyword_odd,
+	Keyword_step,
 };
 
 enum Types

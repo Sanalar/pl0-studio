@@ -45,6 +45,21 @@ protected:
 	void conditionExpression();
 	void orCondition();
 	void condition();
+	void expression();
+	void factor();
+	void atom();
+	void leftValueExpression(bool needToken);
+	void caseStatement();
+	void caseSubStatement();
+	void readStatement();
+	void writeStatement();
+	void whileStatement();
+	void repeatStatement();
+	void forStatement();
+	void beginStatement();
+	void returnStatement();
+	void callStatement();
+	void assignStatement();
 
 private:
 	unordered_map<const wchar_t*, Keyword> m_keywords;
