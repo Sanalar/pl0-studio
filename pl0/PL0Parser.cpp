@@ -5,7 +5,7 @@ static Token errorToken;
 
 #define error(e) m_reporter.raiseError(e, m_curRow, m_curCol, m_curPos)
 
-void InitKeywordsMap(unordered_map<const wchar_t*, Keyword>& m_keywords)
+void InitKeywordsMap(unordered_map<wstring, Keyword>& m_keywords)
 {
 #define M(s, k) m_keywords.insert(make_pair(s, k))
 	M(L"and", Keyword_and);
@@ -45,7 +45,7 @@ void InitKeywordsMap(unordered_map<const wchar_t*, Keyword>& m_keywords)
 
 PL0Parser::PL0Parser()
 {
-
+	InitKeywordsMap(m_keywords);
 }
 
 void PL0Parser::parse()
@@ -207,11 +207,12 @@ Token& PL0Parser::getStringToken()
 	{
 		if (*m_p == '\\')
 			moveCursor();
-		if (*m_p != 0)
+		if (*m_p == 0)
 			break;
 
 		moveCursor();
 	}
+	moveCursor();
 
 	Token token;
 	token.setTokenType(Structure_string);
@@ -226,7 +227,8 @@ Token& PL0Parser::getStringToken()
 
 Token& PL0Parser::getLastToken()
 {
-	assert(m_tokens.size() > 0);
+	if (m_tokens.size() == 0)
+		return errorToken;
 	return m_tokens.back();
 }
 
@@ -262,22 +264,11 @@ Token& PL0Parser::getIdentityToken()
 	if (tokenType == Structure_error)
 	{
 		// 不在关键字表也不在类型表也不在符号表，可能是新符号
-		Token token;
 		token.setTokenType(Structure_id);
 		token.setDetailType(Structure_id);
-		token.setStartIndex(m_savedPos);
-		token.setEndIndex(m_curPos);
-		token.setLineNum(m_savedRow);
-		token.setColNum(m_savedCol);
 		m_tokens.push_back(token);
 		return m_tokens.back();
 	}
-
-	Token token;
-	token.setStartIndex(m_savedPos);
-	token.setEndIndex(m_curPos);
-	token.setLineNum(m_savedRow);
-	token.setColNum(m_savedCol);
 
 	switch (tokenType)
 	{
@@ -333,6 +324,7 @@ void PL0Parser::restoreCursor()
 	m_curCol = m_savedCol;
 	m_curPos = m_savedPos;
 	m_curRow = m_savedRow;
+	m_p = &m_buffer[m_curPos];
 }	
 	
 void PL0Parser::skipWhiteSpaceAndComment()
@@ -434,7 +426,7 @@ void PL0Parser::typeDeclare()
 
 	while (true)
 	{
-		Token token = getIdentityToken();
+		Token& token = getIdentityToken();
 		if (token.tokenType() == Structure_error)
 		{
 			// 不是第一次进入时，可以直接返回
@@ -446,6 +438,7 @@ void PL0Parser::typeDeclare()
 		}
 
 		m_symTable.putSymbol(token.name(), Structure_typename, 0);
+		token.setTokenType(Structure_typename);
 
 		if (!match(L"="))
 		{
@@ -493,13 +486,14 @@ void PL0Parser::recordDeclare()
 // <变量及类型> ::= <标识符>['['<区间说明>{, <区间说明>}']'] : <类型>
 void PL0Parser::variableAndType()
 {
-	Token token = getIdentityToken();
+	Token& token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
 
 	m_symTable.putSymbol(token.name(), Structure_variable, 0);
+	token.setTokenType(Structure_variable);
 
 	if (match(L"["))
 	{
@@ -556,22 +550,24 @@ void PL0Parser::integerOrConst()
 void PL0Parser::enumeratedDeclare()
 {
 	// 进入这个代码的时候左花括号已经匹配成功了
-	Token token = getIdentityToken();
+	Token& token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
 
 	m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
+	token.setTokenType(Structure_constVariable);
 
 	while (match(L","))
 	{
-		token = getIdentityToken();
+		Token& token2 = getIdentityToken();
 		if (token.tokenType() == Structure_error)
 		{
 			error(PL0Error_wantIdentity);
 		}
-		m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
+		m_symTable.putSymbol(token2.name(), Structure_constVariable, 0);
+		token2.setTokenType(Structure_constVariable);
 	}
 
 	if (!match(L"}"))
@@ -600,7 +596,7 @@ void PL0Parser::constDeclare()
 // <常量定义> ::= <标识符>=<字面量>
 void PL0Parser::constVarDefine()
 {
-	Token token = getIdentityToken();
+	Token& token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
@@ -612,6 +608,7 @@ void PL0Parser::constVarDefine()
 	}
 
 	m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
+	token.setTokenType(Structure_constVariable);
 
 	literalValue();
 }
@@ -682,13 +679,14 @@ void PL0Parser::procedureDeclare()
 void PL0Parser::procedureHeader()
 {
 	// 进入该函数的时候，procedure关键字已经被正确匹配
-	Token token = getIdentityToken();
+	Token& token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
 
 	m_symTable.putSymbol(token.name(), Structure_procudureName, 0);
+	token.setTokenType(Structure_procudureName);
 
 	if (match(L"("))
 	{
@@ -731,13 +729,14 @@ void PL0Parser::functionDeclare()
 void PL0Parser::functionHeader()
 {
 	// 进入该函数的时候，function关键字已经成功识别
-	Token token = getIdentityToken();
+	Token& token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
 
 	m_symTable.putSymbol(token.name(), Structure_functionName, 0);
+	token.setTokenType(Structure_functionName);
 
 	if (match(L"("))
 	{

@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include "PL0Parser.h"
 
 class Cpl0_studioCntrItem;
 
@@ -18,6 +19,9 @@ public:
 
 // 操作
 public:
+	void setTextFormat(long start, long end, COLORREF color);
+	void resetDefaultFormat();
+	void colorSyntax();
 
 // 重写
 public:
@@ -35,6 +39,9 @@ public:
 #endif
 
 protected:
+	unordered_map<Structure, COLORREF> m_colorPattern;
+	PL0Parser m_parser;
+	bool m_stopDetect;
 
 // 生成的消息映射函数
 protected:
@@ -42,6 +49,7 @@ protected:
 	afx_msg void OnFilePrintPreview();
 	afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnContextMenu(CWnd* pWnd, CPoint point);
+	afx_msg void OnEnSelchange(NMHDR *pNMHDR, LRESULT *pResult);
 	DECLARE_MESSAGE_MAP()
 };
 

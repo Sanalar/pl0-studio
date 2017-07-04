@@ -10,6 +10,8 @@ public:
 	PL0Parser& setBuffer(const wchar_t* buffer) { m_buffer = buffer; return *this; }
 	void parse();
 
+	inline const vector<Token>& tokens() const { return m_tokens; }
+
 protected:
 	// match 方法可以跳过注释
 	bool match(const wchar_t* symbol);
@@ -70,7 +72,7 @@ protected:
 	void resetContents();
 
 private:
-	unordered_map<const wchar_t*, Keyword> m_keywords;
+	unordered_map<wstring, Keyword> m_keywords;
 	vector<Token> m_tokens;
 	PL0ErrorReporter m_reporter;
 	const wchar_t* m_buffer;
