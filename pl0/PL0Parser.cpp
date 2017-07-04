@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "PL0Parser.h"
 
+static Token errorToken;
+
 #define error(e) m_reporter.raiseError(e, m_curRow, m_curCol, m_curPos)
 
 void InitKeywordsMap(unordered_map<const wchar_t*, Keyword>& m_keywords)
@@ -46,6 +48,353 @@ PL0Parser::PL0Parser()
 
 }
 
+void PL0Parser::parse()
+{
+	resetContents();
+	program();
+}
+
+bool PL0Parser::match(const wchar_t* symbol)
+{
+	skipWhiteSpaceAndComment();
+
+	saveCursor();
+
+	const wchar_t* target = symbol;
+	while (*m_p != 0)
+	{
+		if (*target == 0)
+			return true;
+
+		if (*m_p != *target)
+			break;
+
+		moveCursor();
+		++target;
+	}
+
+	restoreCursor();
+	return false;
+}
+
+bool PL0Parser::matchKeyword(Keyword key)
+{
+	skipWhiteSpaceAndComment();
+	saveCursor();
+
+	wstring keyStr = getIdentity();
+	auto it = m_keywords.find(keyStr.c_str());
+	if (it == m_keywords.end() || it->second != key)
+	{
+		restoreCursor();
+		return false;
+	}
+	
+	Token token;
+	token.setTokenType(Structure_keyword);
+	token.setDetailType(key);
+	token.setStartIndex(m_savedPos);
+	token.setEndIndex(m_curPos);
+	token.setLineNum(m_savedRow);
+	token.setColNum(m_savedCol);
+	m_tokens.push_back(token);
+
+	return true;
+}
+
+std::wstring PL0Parser::getIdentity()
+{
+	wstring res;
+
+	if (!isalpha(*m_p) && *m_p != '_')
+	{
+		return res;
+	}
+
+	res += *m_p;
+	moveCursor();
+
+	while (isalnum(*m_p) || *m_p == '_')
+	{
+		res += ::tolower(*m_p);
+		moveCursor();
+	}
+
+	return res;
+}
+
+Token& PL0Parser::getVariableToken()
+{
+	Token& res = getIdentityToken();
+	return res.tokenType() == Structure_variable ? res : errorToken;
+}
+
+Token& PL0Parser::getTypenameToken()
+{
+	Token& res = getIdentityToken();
+	return res.tokenType() == Structure_typename ? res : errorToken;
+}
+
+Token& PL0Parser::getConstNameToken()
+{
+	Token& res = getIdentityToken();
+	return res.tokenType() == Structure_constVariable ? res : errorToken;
+}
+
+Token& PL0Parser::getNumberToken()
+{
+	skipWhiteSpaceAndComment();
+	wstring numStr;
+	int type = Structure_error;
+
+	saveCursor();
+
+	if (isdigit(*m_p))
+	{
+		numStr += *m_p;
+		moveCursor();
+		type = Structure_integer;
+
+		while (isdigit(*m_p))
+		{
+			numStr += *m_p;
+			moveCursor();
+		}
+
+		if (*m_p == '.')
+		{
+			numStr += *m_p;
+			moveCursor();
+			type = Structure_real;
+			while (isdigit(*m_p))
+			{
+				numStr += *m_p;
+				moveCursor();
+			}
+		}
+	}
+
+	if (type == Structure_error)
+	{
+		restoreCursor();
+		return errorToken;
+	}
+
+	Token token;
+	token.setTokenType((Structure)type);
+	token.setDetailType(type);
+	token.setStartIndex(m_savedPos);
+	token.setEndIndex(m_curPos);
+	token.setLineNum(m_savedRow);
+	token.setColNum(m_savedCol);
+	m_tokens.push_back(token);
+	return m_tokens.back();
+}
+
+Token& PL0Parser::getStringToken()
+{
+	skipWhiteSpaceAndComment();
+	saveCursor();
+
+	if (*m_p != '\"')
+	{
+		return errorToken;
+	}
+
+	moveCursor();
+
+	while (*m_p != '\"')
+	{
+		if (*m_p == '\\')
+			moveCursor();
+		if (*m_p != 0)
+			break;
+
+		moveCursor();
+	}
+
+	Token token;
+	token.setTokenType(Structure_string);
+	token.setDetailType(Structure_string);
+	token.setStartIndex(m_savedPos);
+	token.setEndIndex(m_curPos);
+	token.setLineNum(m_savedRow);
+	token.setColNum(m_savedCol);
+	m_tokens.push_back(token);
+	return m_tokens.back();
+}
+
+Token& PL0Parser::getLastToken()
+{
+	assert(m_tokens.size() > 0);
+	return m_tokens.back();
+}
+
+Token& PL0Parser::getIdentityToken()
+{
+	skipWhiteSpaceAndComment();
+	saveCursor();
+	wstring key = getIdentity();
+	if (key.length() == 0)
+		return errorToken;
+
+	Token token;
+	token.setStartIndex(m_savedPos);
+	token.setEndIndex(m_curPos);
+	token.setLineNum(m_savedRow);
+	token.setColNum(m_savedCol);
+	token.setName(key);
+
+	// 先测试是不是关键字
+	auto it = m_keywords.find(key.c_str());
+	if (it != m_keywords.end())
+	{
+		token.setTokenType(Structure_keyword);
+		token.setDetailType(it->second);
+		m_tokens.push_back(token);
+		return m_tokens.back();
+	}
+
+	// 再测试是不是类型名
+
+	// 测试是不是已经保存的符号
+	int tokenType = m_symTable.getSymbolType(key);
+	if (tokenType == Structure_error)
+	{
+		// 不在关键字表也不在类型表也不在符号表，可能是新符号
+		Token token;
+		token.setTokenType(Structure_id);
+		token.setDetailType(Structure_id);
+		token.setStartIndex(m_savedPos);
+		token.setEndIndex(m_curPos);
+		token.setLineNum(m_savedRow);
+		token.setColNum(m_savedCol);
+		m_tokens.push_back(token);
+		return m_tokens.back();
+	}
+
+	Token token;
+	token.setStartIndex(m_savedPos);
+	token.setEndIndex(m_curPos);
+	token.setLineNum(m_savedRow);
+	token.setColNum(m_savedCol);
+
+	switch (tokenType)
+	{
+	case Structure_typename:
+	case Structure_variable:
+	case Structure_constVariable:
+	case Structure_functionName:
+	case Structure_procudureName:
+		token.setTokenType((Structure)tokenType);
+		token.setDetailType((Structure)tokenType);
+		break;
+	default:
+		restoreCursor();
+		return errorToken;
+	}
+		
+	m_tokens.push_back(token);
+	return m_tokens.back();
+}
+
+void PL0Parser::moveCursor(int step /*= 1*/)
+{
+	if (step > 1)
+	{
+		moveCursor(step - 1);
+	}
+
+	if (*m_p != 0)
+	{
+		if (*m_p == '\n')
+		{
+			++m_curRow;
+			m_curCol = 0;
+		}
+		else
+		{
+			++m_curCol;
+		}
+		++m_p;
+		++m_curPos;
+	}
+}
+
+void PL0Parser::saveCursor()
+{
+	m_savedCol = m_curCol;
+	m_savedPos = m_curPos;
+	m_savedRow = m_curRow;
+}
+
+void PL0Parser::restoreCursor()
+{
+	m_curCol = m_savedCol;
+	m_curPos = m_savedPos;
+	m_curRow = m_savedRow;
+}	
+	
+void PL0Parser::skipWhiteSpaceAndComment()
+{
+	while ((isspace(*m_p) || *m_p == '/') && *m_p != 0)
+	{
+		if (*m_p == '/')
+		{
+			if (!comment())
+				return;
+			continue;
+		}
+
+		moveCursor();
+	}
+}
+
+bool PL0Parser::comment()
+{
+	// 这里有个隐藏行为，match 成功的时候，保存的游标不会被修改
+	if (match(L"//"))
+	{
+		while (*m_p != '\n' && *m_p != 0)
+		{
+			moveCursor();
+		}
+
+		Token token;
+		token.setTokenType(Structure_comment);
+		token.setDetailType(Structure_comment);
+		token.setStartIndex(m_savedPos);
+		token.setEndIndex(m_curPos);
+		token.setLineNum(m_savedRow);
+		token.setColNum(m_savedCol);
+		m_tokens.push_back(token);
+		return true;
+	}
+	else if (match(L"/*"))
+	{
+		while (*m_p != 0)
+		{
+			if (*m_p == '*' && *(m_p + 1) == '/')
+			{
+				moveCursor(2);
+				Token token;
+				token.setTokenType(Structure_comment);
+				token.setDetailType(Structure_comment);
+				token.setStartIndex(m_savedPos);
+				token.setEndIndex(m_curPos);
+				token.setLineNum(m_savedRow);
+				token.setColNum(m_savedCol);
+				m_tokens.push_back(token);
+				return true;
+			}
+
+			moveCursor();
+		}
+	}
+
+	return false;
+}
+
 // <程序> ::= <分程序>.
 void PL0Parser::program()
 {
@@ -85,7 +434,7 @@ void PL0Parser::typeDeclare()
 
 	while (true)
 	{
-		Token token = getVariableToken();
+		Token token = getIdentityToken();
 		if (token.tokenType() == Structure_error)
 		{
 			// 不是第一次进入时，可以直接返回
@@ -95,6 +444,8 @@ void PL0Parser::typeDeclare()
 			// 第一次进入时，必须匹配该项
 			error(PL0Error_wantIdentity);
 		}
+
+		m_symTable.putSymbol(token.name(), Structure_typename, 0);
 
 		if (!match(L"="))
 		{
@@ -142,11 +493,13 @@ void PL0Parser::recordDeclare()
 // <变量及类型> ::= <标识符>['['<区间说明>{, <区间说明>}']'] : <类型>
 void PL0Parser::variableAndType()
 {
-	Token token = getVariableToken();
+	Token token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
+
+	m_symTable.putSymbol(token.name(), Structure_variable, 0);
 
 	if (match(L"["))
 	{
@@ -190,7 +543,7 @@ void PL0Parser::rangeDeclare()
 // <整数或常量>
 void PL0Parser::integerOrConst()
 {
-	Token token = getIntegerToken();
+	Token token = getNumberToken();
 	if (token.tokenType() == Structure_error)
 		token = getConstNameToken();
 	if (token.tokenType() == Structure_error)
@@ -203,19 +556,22 @@ void PL0Parser::integerOrConst()
 void PL0Parser::enumeratedDeclare()
 {
 	// 进入这个代码的时候左花括号已经匹配成功了
-	Token token = getVariableToken();
+	Token token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
 
+	m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
+
 	while (match(L","))
 	{
-		token = getVariableToken();
+		token = getIdentityToken();
 		if (token.tokenType() == Structure_error)
 		{
 			error(PL0Error_wantIdentity);
 		}
+		m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
 	}
 
 	if (!match(L"}"))
@@ -244,7 +600,7 @@ void PL0Parser::constDeclare()
 // <常量定义> ::= <标识符>=<字面量>
 void PL0Parser::constVarDefine()
 {
-	Token token = getVariableToken();
+	Token token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
@@ -254,6 +610,8 @@ void PL0Parser::constVarDefine()
 	{
 		error(PL0Error_wantEqualSymbol);
 	}
+
+	m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
 
 	literalValue();
 }
@@ -324,11 +682,13 @@ void PL0Parser::procedureDeclare()
 void PL0Parser::procedureHeader()
 {
 	// 进入该函数的时候，procedure关键字已经被正确匹配
-	Token token = getVariableToken();
+	Token token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
+
+	m_symTable.putSymbol(token.name(), Structure_procudureName, 0);
 
 	if (match(L"("))
 	{
@@ -371,11 +731,13 @@ void PL0Parser::functionDeclare()
 void PL0Parser::functionHeader()
 {
 	// 进入该函数的时候，function关键字已经成功识别
-	Token token = getVariableToken();
+	Token token = getIdentityToken();
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
+
+	m_symTable.putSymbol(token.name(), Structure_functionName, 0);
 
 	if (match(L"("))
 	{
@@ -903,5 +1265,18 @@ void PL0Parser::assignStatement()
 	}
 
 	expression();
+}
+
+void PL0Parser::resetContents()
+{
+	m_tokens.clear();
+	m_p = m_buffer;
+	m_curPos = 0;
+	m_curRow = 0;
+	m_curCol = 0;
+	m_savedPos = 0;
+	m_savedRow = 0;
+	m_savedCol = 0;
+	m_symTable.clear();
 }
 

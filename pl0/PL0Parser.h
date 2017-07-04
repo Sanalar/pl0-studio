@@ -1,27 +1,33 @@
 #pragma once
 
 #include "PL0ErrorReporter.h"
+#include "PL0SymbolTable.h"
 
 class PL0Parser
 {
 public:
 	PL0Parser();
-	PL0Parser& setBuffer(const wchar_t* buffer);
+	PL0Parser& setBuffer(const wchar_t* buffer) { m_buffer = buffer; return *this; }
+	void parse();
 
 protected:
 	// match 方法可以跳过注释
 	bool match(const wchar_t* symbol);
 	bool matchKeyword(Keyword key);
+	wstring getIdentity();
 	Token& getVariableToken();
 	Token& getTypenameToken();
-	Token& getIntegerToken();
 	Token& getConstNameToken();
 	Token& getNumberToken();
 	Token& getStringToken();
 	Token& getLastToken();
 	Token& getIdentityToken();
-	void moveCursor(int step = 1);
+	inline void moveCursor(int step = 1);
+	inline void saveCursor();
+	inline void restoreCursor();
+	inline void skipWhiteSpaceAndComment();
 
+	bool comment();
 	void program();
 	void block();
 	void typeDeclare();
@@ -61,6 +67,8 @@ protected:
 	void callStatement();
 	void assignStatement();
 
+	void resetContents();
+
 private:
 	unordered_map<const wchar_t*, Keyword> m_keywords;
 	vector<Token> m_tokens;
@@ -70,4 +78,8 @@ private:
 	int m_curPos;
 	int m_curRow;
 	int m_curCol;
+	int m_savedPos;
+	int m_savedRow;
+	int m_savedCol;
+	SymbolTable m_symTable;
 };

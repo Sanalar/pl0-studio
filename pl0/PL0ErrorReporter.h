@@ -42,6 +42,6 @@ enum PL0Info
 class PL0ErrorReporter
 {
 public:
-	void raiseError(PL0Error err, int row, int col, int offset, wstring* msg = nullptr);
-	void raiseWarning(PL0Warning warning, int row, int col, int offset, wstring* msg = nullptr);
+	void raiseError(PL0Error err, int row, int col, int offset, wstring* msg = nullptr) {}
+	void raiseWarning(PL0Warning warning, int row, int col, int offset, wstring* msg = nullptr) {}
 };

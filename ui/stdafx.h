@@ -43,6 +43,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <algorithm>
 using namespace std;
 using namespace stdext;
 

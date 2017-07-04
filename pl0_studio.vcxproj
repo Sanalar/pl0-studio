@@ -199,6 +199,7 @@
   <ItemGroup>
     <ClInclude Include="pl0\PL0ErrorReporter.h" />
     <ClInclude Include="pl0\PL0Parser.h" />
+    <ClInclude Include="pl0\PL0SymbolTable.h" />
     <ClInclude Include="pl0\PL0Types.h" />
     <ClInclude Include="ui/ChildFrm.h" />
     <ClInclude Include="ui/ClassView.h" />
