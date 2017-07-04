@@ -2,7 +2,7 @@
 
 enum Structure
 {
-	Structure_none = 0,
+	Structure_error = 0,
 	Structure_id,
 	Structure_number,
 	Structure_string,
@@ -13,6 +13,7 @@ enum Structure
 	Structure_constVariable,
 	Structure_variable,
 	Structure_procudureName,
+	Structure_typename,
 };
 
 enum Keyword
@@ -56,8 +57,11 @@ enum Types
 
 class Token
 {
+public:
+	inline Structure tokenType() const { return m_tokenType; }
+
 protected:
-	CString m_text;
+	wstring m_text;
 	int m_startIndex;
 	int m_endIndex;
 	int m_lineNum;

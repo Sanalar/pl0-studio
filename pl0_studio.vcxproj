@@ -197,6 +197,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pl0\PL0ErrorReporter.h" />
     <ClInclude Include="pl0\PL0Parser.h" />
     <ClInclude Include="pl0\PL0Types.h" />
     <ClInclude Include="ui/ChildFrm.h" />

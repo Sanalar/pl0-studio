@@ -73,6 +73,9 @@
     <ClInclude Include="pl0\PL0Parser.h">
       <Filter>pl0</Filter>
     </ClInclude>
+    <ClInclude Include="pl0\PL0ErrorReporter.h">
+      <Filter>pl0</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ui/ChildFrm.cpp">
