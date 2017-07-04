@@ -18,6 +18,8 @@ protected:
 	Token& getConstNameToken();
 	Token& getNumberToken();
 	Token& getStringToken();
+	Token& getLastToken();
+	Token& getIdentityToken();
 	void moveCursor(int step = 1);
 
 	void program();
@@ -31,6 +33,18 @@ protected:
 	void constDeclare();
 	void constVarDefine();
 	void literalValue();
+	void variableDeclare();
+	void moduleDeclare();
+	void procedureDeclare();
+	void procedureHeader();
+	void paramList();
+	void functionDeclare();
+	void functionHeader();
+	void statement();
+	void ifStatement();
+	void conditionExpression();
+	void orCondition();
+	void condition();
 
 private:
 	unordered_map<const wchar_t*, Keyword> m_keywords;

@@ -45,6 +45,10 @@ enum Keyword
 	Keyword_until,
 	Keyword_var,
 	Keyword_while,
+	Keyword_read,
+	Keyword_write,
+	Keyword_return,
+	Keyword_odd,
 };
 
 enum Types
@@ -59,6 +63,7 @@ class Token
 {
 public:
 	inline Structure tokenType() const { return m_tokenType; }
+	inline int detailType() const { return m_detailType; }
 
 protected:
 	wstring m_text;
@@ -67,4 +72,5 @@ protected:
 	int m_lineNum;
 	int m_colNum;
 	Structure m_tokenType;
+	int m_detailType;
 };

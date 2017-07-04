@@ -33,6 +33,10 @@ void InitKeywordsMap(unordered_map<const wchar_t*, Keyword>& m_keywords)
 	M(L"until", Keyword_until);
 	M(L"var", Keyword_var);
 	M(L"while", Keyword_while);
+	M(L"read", Keyword_read);
+	M(L"write", Keyword_write);
+	M(L"return", Keyword_return);
+	M(L"odd", Keyword_odd);
 #undef M
 }
 
@@ -65,8 +69,10 @@ void PL0Parser::block()
 		constDeclare();
 	while(matchKeyword(Keyword_type))
 		typeDeclare();
-	variableDeclare();
-	functionDeclare();
+	while(matchKeyword(Keyword_var))
+		variableDeclare();
+	while(matchKeyword(Keyword_procedure) || matchKeyword(Keyword_function))
+		moduleDeclare();
 	statement();
 }
 
@@ -273,5 +279,287 @@ void PL0Parser::literalValue()
 	else
 	{
 		error(PL0Error_wantIdentity);
+	}
+}
+
+// <变量说明部分> ::= VAR <变量及类型>{, <变量及类型>};
+void PL0Parser::variableDeclare()
+{
+	// 进入该函数则表明已经成功匹配 var
+	variableAndType();
+
+	while (match(L","))
+		variableAndType();
+
+	if (!match(L";"))
+	{
+		error(PL0Error_wantSemicolon);
+	}
+}
+
+// <模块说明部分> ::= (<过程说明部分> | <函数说明部分>){; <模块说明部分>};
+void PL0Parser::moduleDeclare()
+{
+	Token token = getLastToken();
+	if (token.detailType() == Keyword_procedure)
+		procedureDeclare();
+	else if (token.detailType() == Keyword_function)
+		functionDeclare();
+
+	if (!match(L";"))
+	{
+		error(PL0Error_wantSemicolon);
+	}
+}
+
+// <过程说明部分> ::= <过程说明首部><分程序>
+void PL0Parser::procedureDeclare()
+{
+	procedureHeader();
+	block();
+}
+
+// <过程说明首部> ::= PROCEDURE<标识符>['('<参数列表>')'];
+void PL0Parser::procedureHeader()
+{
+	// 进入该函数的时候，procedure关键字已经被正确匹配
+	Token token = getVariableToken();
+	if (token.tokenType() == Structure_error)
+	{
+		error(PL0Error_wantIdentity);
+	}
+
+	if (match(L"("))
+	{
+		paramList();
+		if (!match(L")"))
+		{
+			error(PL0Error_wantRParen);
+		}
+	}
+
+	if (!match(L";"))
+	{
+		error(PL0Error_wantSemicolon);
+	}
+}
+
+// <参数列表> ::= (<变量及类型> {, <变量及类型>})|<空>
+void PL0Parser::paramList()
+{
+	// 后跟集为 { ')' }，如果直接为这个，说明推出为空
+	if (*m_p == L')')
+		return;
+
+	variableAndType();
+	
+	while (match(L","))
+	{
+		variableAndType();
+	}
+}
+
+// <函数说明部分> ::= <函数说明首部><分程序>
+void PL0Parser::functionDeclare()
+{
+	functionHeader();
+	block();
+}
+
+// <函数说明首部> ::= FUNCTION<标识符>['('<参数列表>')']:<类型>;
+void PL0Parser::functionHeader()
+{
+	// 进入该函数的时候，function关键字已经成功识别
+	Token token = getVariableToken();
+	if (token.tokenType() == Structure_error)
+	{
+		error(PL0Error_wantIdentity);
+	}
+
+	if (match(L"("))
+	{
+		paramList();
+
+		if (!match(L")"))
+		{
+			error(PL0Error_wantRParen);
+		}
+	}
+
+	if (!match(L":"))
+	{
+		error(PL0Error_wantColon);
+	}
+
+	token = getTypenameToken();
+	if (token.tokenType() == Structure_error)
+	{
+		error(PL0Error_wantTypename);
+	}
+
+	if (!match(L";"))
+	{
+		error(PL0Error_wantColon);
+	}
+}
+
+// <语句> ::= <赋值语句>|<条件语句>|<循环语句>|<过程调用语句>|<读语句>|<写语句>|<复合语句>|<返回语句>|<空>
+/*
+	if, case           -> <条件语句>
+	read               -> <读语句>
+	write              -> <写语句>
+	while, repeat, for -> <循环语句>
+	begin              -> <复合语句>
+	return             -> <返回语句>
+	call               -> <过程调用语句>
+	variable           -> <赋值语句>|<过程调用语句>
+	后跟集合           -> <空>
+
+	除后跟集合外，first集均为<标识符>。
+	后跟集合：
+	'.', ';', 'END'
+*/
+void PL0Parser::statement()
+{
+	Token token = getIdentityToken();
+	// 判断后跟集合，推导空语句
+	if (*m_p == '.' || *m_p == ';' || token.detailType() == Keyword_end)
+		return;
+
+	switch (token.detailType())
+	{
+	case Keyword_if:
+		ifStatement();
+		break;
+	case Keyword_case:
+		caseStatement();
+		break;
+	case Keyword_read:
+		readStatement();
+		break;
+	case Keyword_write:
+		writeStatement();
+		break;
+	case Keyword_while:
+		whileStatement();
+		break;
+	case Keyword_repeat:
+		repeatStatement();
+		break;
+	case Keyword_for:
+		forStatement();
+		break;
+	case Keyword_begin:
+		beginStatement();
+		break;
+	case Keyword_return:
+		returnStatement();
+		break;
+	case Keyword_call:
+	case Structure_functionName:
+	case Structure_procudureName:
+		callStatement();
+		break;
+	default:
+		assignStatement();
+		break;
+	}
+}
+
+// <IF条件语句> ::= IF<条件表达式>THEN<语句>{ELSEIF<条件表达式>THEN<语句>}[ELSE<语句>]
+void PL0Parser::ifStatement()
+{
+	// 进入该函数的时候，if关键字已经成功匹配
+	conditionExpression();
+
+	if (!matchKeyword(Keyword_then))
+	{
+		error(PL0Error_wantThen);
+	}
+
+	statement();
+
+	while (matchKeyword(Keyword_elseif))
+	{
+		conditionExpression();
+
+		if (!matchKeyword(Keyword_then))
+		{
+			error(PL0Error_wantThen);
+		}
+
+		statement();
+	}
+
+	if (matchKeyword(Keyword_else))
+	{
+		statement();
+	}
+}
+
+// <条件表达式> ::= <或条件> {OR <或条件>}
+void PL0Parser::conditionExpression()
+{
+	orCondition();
+
+	while (matchKeyword(Keyword_or))
+	{
+		orCondition();
+	}
+}
+
+// <或条件> ::= <条件> {AND <条件>}
+void PL0Parser::orCondition()
+{
+	condition();
+
+	while (matchKeyword(Keyword_and))
+	{
+		condition();
+	}
+}
+
+// <条件> ::= <表达式><关系运算符><表达式>|ODD<表达式>
+// <关系运算符> ::= =|#|<|<=|>|>=|!=
+void PL0Parser::condition()
+{
+	if (matchKeyword(Keyword_odd) || match(L"!"))
+	{
+		expression();
+	}
+	else
+	{
+		expression();
+
+		if (match(L">="))
+		{
+
+		}
+		else if (match(L"<="))
+		{
+
+		}
+		else if (match(L"!=") || match(L"#"))
+		{
+
+		}
+		else if (match(L"==") || match(L"="))
+		{
+
+		}
+		else if (match(L"<"))
+		{
+
+		}
+		else if (match(L">"))
+		{
+
+		}
+		else
+		{
+			error(PL0Error_wantConditionOperator);
+		}
+
+		expression();
 	}
 }

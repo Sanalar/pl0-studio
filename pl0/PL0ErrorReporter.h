@@ -16,6 +16,10 @@ enum PL0Error
 	PL0Error_wantRBrace,
 	PL0Error_wantNumber,
 	PL0Error_wantString,
+	PL0Error_wantLParen,
+	PL0Error_wantRParen,
+	PL0Error_wantThen,
+	PL0Error_wantConditionOperator,
 };
 
 enum PL0Warning
