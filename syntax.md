@@ -1,3 +1,6 @@
+# 语法说明
+
+```
 <程序> ::= <分程序>.
 <分程序> ::= [<类型说明部分>][<常量说明部分>][<变量说明部分>][<模块说明部分>]<语句>
 <类型说明部分> ::= <重定义类型> | <枚举类型> | <结构体类型>
@@ -46,3 +49,142 @@
 <注释> ::= <行注释> | <块注释>
 <行注释> ::= // <任意字符> <换行符>
 <块注释> ::= /* <任意字符> */
+```
+## 一些语法结构对应的中间代码
+
+1. `if` 条件语句
+
+   ```
+   if <condition1> then
+       <statement1>
+   elseif <condition2> then
+       <statement2>
+   elseif <condition3> then
+       <statement3>
+   else
+       <statement_n>
+   ```
+
+   翻译后的结构应该是：
+
+   ```
+   0x00 (<condition1>)
+   0x01 (jz, 0x04, null, null)
+   0x02 (<statement1>)
+   0x03 (jmp, 0x0d, null, null)
+   0x04 (<condition2>)
+   0x05 (jz, 0x08, null, null)
+   0x06 (<statement2>)
+   0x07 (jmp, 0x0d, null, null)
+   0x08 (<condition3>)
+   0x09 (jz, 0x0c, null, null)
+   0x0a (<statement3>)
+   0x0b (jmp, 0x0d, null, null)
+   0x0c (<statement_n>)
+   0x0d (<外围语句>)
+   ```
+
+2. `case` 条件语句
+
+   ```
+   case <expression> of
+   val1: 
+       <statement1>;
+   val2:
+       <statement2>;
+   else
+       <statement_n>;
+   end;
+   ```
+
+   翻译后的结构应该是：
+
+   ```
+   0x00 (<expression>)
+   0x01 (cmp, val1, s[top], null) // 比较栈顶和数，并将比较结果压栈
+   0x02 (jnz, 0x05, null, null)       // 将栈顶的数和 0 比较，并出栈
+   0x03 (<statement1>)
+   0x04 (jmp, 0x0a, null, null)
+   0x05 (cmp, val2,s[top], null)
+   0x06 (jnz, 0x09, null, null)
+   0x07 (<statement2>)
+   0x08 (jmp, 0x0a, null, null)
+   0x09 (<statement_n>)
+   0x0a (<外围语句>)
+   ```
+
+3. `while` 语句
+
+   ```
+   while <condition> do
+       <statement>
+   ```
+
+   翻译后的结果应该是：
+
+   ```
+   0x00 (<condition>)
+   0x01 (jz, 0x03, null, null)
+   0x02 (<statement>)
+   0x03 (jmp, 0x00, null, null)
+   0x03 (<外围语句>)
+   ```
+
+4. `repeat` 语句
+
+   ```
+   repeat
+       <statement>
+   until <condition>;
+   ```
+
+   翻译后的结果应该是：
+
+   ```
+   0x00 (<statement>)
+   0x01 (<condition>)
+   0x02 (jz, 0x00, null, null)
+   0x03 (<外围语句>)
+   ```
+
+5. `for` 语句
+
+   ```
+   for <var>:=<expression1> step<exression2> until <expression3> do
+       <statement>
+   ```
+
+   翻译后的结果应该是：
+
+   ```
+   0x00 (<expression1>)
+   0x01 (<expression2>) // 如果没有 step，就为 (push, 1, null, null)
+   0x02 (<expression3>)
+   0x03 (mov, s[top-2], null, <var>)
+   0x04 (<statement>)
+   0x05 (push, <var>, null, null)
+   0x06 (push, s[top-2], null, null)
+   0x07 (add, null, null, null)
+   0x08 (cmp, s[top-1], s[top], null)
+   0x09 (jle, 0x03, null, null)
+   0x0a (<外围代码>)
+   ```
+
+6. `read` 和 `write` 语句
+
+   ```
+   read(<var>, <var>, <var>);
+   ```
+
+   翻译后结果为：
+
+   ```
+   (read, null, null, null)		// 读取一个整数并压栈
+   (pop, <var>, null, null)
+   ...
+   ```
+
+四元式：
+
+push_const, val, null, null
+push_var

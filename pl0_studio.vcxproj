@@ -235,6 +235,7 @@
     <ClCompile Include="ui/ViewTree.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="syntax.md" />
     <None Include="ui/pl0_studio.reg" />
     <None Include="res/pl0_studio.rc2" />
   </ItemGroup>

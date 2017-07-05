@@ -90,3 +90,22 @@ protected:
 	Structure m_tokenType;
 	int m_detailType;
 };
+
+enum Command
+{
+	PUSH_NUM,		///< 将一个立即数压入栈顶
+	PUSH_VAR,		///< 将一个变量的值入栈
+	ADD,			///< 将栈顶与次栈顶的数相加，结果放到次栈顶，并弹出栈顶，不加特殊说明，所有算数运算都是这个规则
+	SUB,			///< 次栈顶 = 次栈顶 - 栈顶
+	MUL,			///< 次栈顶 = 次栈顶 * 栈顶
+	DIV,			///< 次栈顶 = 次栈顶 / 栈顶
+	MOD,			///< 次栈顶 = 次栈顶 % 栈顶
+};
+
+struct Instruction
+{
+	Command cmd;
+	int arg1;
+	int arg2;
+	int target;
+};

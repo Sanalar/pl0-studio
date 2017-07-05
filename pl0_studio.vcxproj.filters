@@ -23,6 +23,9 @@
     <Filter Include="其它窗格">
       <UniqueIdentifier>{82170239-d4c9-4389-84bf-87559b87f1e2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="文档">
+      <UniqueIdentifier>{c823d33d-f878-422b-9bf2-272c6a011c11}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -122,6 +125,9 @@
     <None Include="ui/pl0_studio.reg" />
     <None Include="res/pl0_studio.rc2">
       <Filter>资源文件</Filter>
+    </None>
+    <None Include="syntax.md">
+      <Filter>文档</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
