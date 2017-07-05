@@ -174,6 +174,7 @@
 
    ```
    read(<var>, <var>, <var>);
+   write(<expr>, <expr>, <expr>);
    ```
 
    翻译后结果为：

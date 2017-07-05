@@ -2,6 +2,8 @@
 
 #include "PL0ErrorReporter.h"
 #include "PL0SymbolTable.h"
+#include "PL0InstructionGernerator.h"
+#include "PL0Block.h"
 
 class PL0Parser
 {
@@ -33,14 +35,14 @@ protected:
 	void program();
 	void block();
 	void typeDeclare();
-	void recordDeclare();
-	void variableAndType();
-	void rangeDeclare();
-	void integerOrConst();
-	void enumeratedDeclare();
+	void recordDeclare(SymbolInfo& root);
+	SymbolInfo& variableAndType();
+	int rangeDeclare();
+	int integerOrConst();
+	void enumeratedDeclare(SymbolInfo& root);
 	void constDeclare();
 	void constVarDefine();
-	void literalValue();
+	BasicTypeValue literalValue();
 	void variableDeclare();
 	void moduleDeclare();
 	void procedureDeclare();
@@ -58,7 +60,7 @@ protected:
 	void atom();
 	void leftValueExpression(bool needToken);
 	void caseStatement();
-	void caseSubStatement();
+	int caseSubStatement();
 	void readStatement();
 	void writeStatement();
 	void whileStatement();
@@ -73,7 +75,9 @@ protected:
 
 private:
 	unordered_map<wstring, Keyword> m_keywords;
+	unordered_map<wstring, Types> m_types;
 	vector<Token> m_tokens;
+	InstructionGenerator m_ins;
 	PL0ErrorReporter m_reporter;
 	const wchar_t* m_buffer;
 	const wchar_t* m_p;
@@ -83,5 +87,6 @@ private:
 	int m_savedPos;
 	int m_savedRow;
 	int m_savedCol;
-	SymbolTable m_symTable;
+	PL0Block* m_rootBlock;
+	PL0Block* m_curBlock;
 };

@@ -82,6 +82,12 @@
     <ClInclude Include="pl0\PL0SymbolTable.h">
       <Filter>pl0</Filter>
     </ClInclude>
+    <ClInclude Include="pl0\PL0InstructionGernerator.h">
+      <Filter>pl0</Filter>
+    </ClInclude>
+    <ClInclude Include="pl0\PL0Block.h">
+      <Filter>pl0</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ui/ChildFrm.cpp">
@@ -118,6 +124,9 @@
       <Filter>其它窗格</Filter>
     </ClCompile>
     <ClCompile Include="pl0\PL0Parser.cpp">
+      <Filter>pl0</Filter>
+    </ClCompile>
+    <ClCompile Include="pl0\PL0InstructionGernerator.cpp">
       <Filter>pl0</Filter>
     </ClCompile>
   </ItemGroup>

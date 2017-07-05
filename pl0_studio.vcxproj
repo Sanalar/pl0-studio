@@ -197,7 +197,9 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pl0\PL0Block.h" />
     <ClInclude Include="pl0\PL0ErrorReporter.h" />
+    <ClInclude Include="pl0\PL0InstructionGernerator.h" />
     <ClInclude Include="pl0\PL0Parser.h" />
     <ClInclude Include="pl0\PL0SymbolTable.h" />
     <ClInclude Include="pl0\PL0Types.h" />
@@ -216,6 +218,7 @@
     <ClInclude Include="ui/ViewTree.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="pl0\PL0InstructionGernerator.cpp" />
     <ClCompile Include="pl0\PL0Parser.cpp" />
     <ClCompile Include="ui/ChildFrm.cpp" />
     <ClCompile Include="ui/ClassView.cpp" />

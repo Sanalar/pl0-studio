@@ -46,6 +46,11 @@ void InitKeywordsMap(unordered_map<wstring, Keyword>& m_keywords)
 PL0Parser::PL0Parser()
 {
 	InitKeywordsMap(m_keywords);
+
+	m_types.insert(make_pair(L"integer", Types_integer));
+	m_types.insert(make_pair(L"real", Types_real));
+	m_types.insert(make_pair(L"char", Types_char));
+	m_types.insert(make_pair(L"boolean", Types_boolean));
 }
 
 void PL0Parser::parse()
@@ -258,9 +263,17 @@ Token& PL0Parser::getIdentityToken()
 	}
 
 	// 再测试是不是类型名
+	auto it2 = m_types.find(key.c_str());
+	if (it2 != m_types.end())
+	{
+		token.setTokenType(Structure_typename);
+		token.setDetailType(it->second);
+		m_tokens.push_back(token);
+		return m_tokens.back();
+	}
 
 	// 测试是不是已经保存的符号
-	int tokenType = m_symTable.getSymbolType(key);
+	int tokenType = m_curBlock->getSymbolType(key);
 	if (tokenType == Structure_error)
 	{
 		// 不在关键字表也不在类型表也不在符号表，可能是新符号
@@ -388,8 +401,14 @@ bool PL0Parser::comment()
 }
 
 // <程序> ::= <分程序>.
+/*
+	最末尾生成停机指令
+*/
 void PL0Parser::program()
 {
+	m_rootBlock = new PL0Block;
+	m_curBlock = m_rootBlock;
+	m_ins.generate(PUSH, 0);
 	block();
 
 	if (!match(L"."))
@@ -397,6 +416,8 @@ void PL0Parser::program()
 		error(PL0Error_missingPeriod);
 		moveCursor();
 	}
+
+	m_ins.generate(EXIT);
 
 	if (*m_p != 0)
 	{
@@ -437,7 +458,7 @@ void PL0Parser::typeDeclare()
 			error(PL0Error_wantIdentity);
 		}
 
-		m_symTable.putSymbol(token.name(), Structure_typename, 0);
+		SymbolInfo& info = m_curBlock->putTypenameSymbol(token.name());
 		token.setTokenType(Structure_typename);
 
 		if (!match(L"="))
@@ -447,11 +468,13 @@ void PL0Parser::typeDeclare()
 
 		if (matchKeyword(Keyword_record))
 		{
-			recordDeclare();
+			info.detailType = Types_record;
+			recordDeclare(info);
 		}
 		else if (match(L"{"))
 		{
-			enumeratedDeclare();
+			info.detailType = Types_enumerated;
+			enumeratedDeclare(info);
 		}
 		else
 		{
@@ -460,12 +483,14 @@ void PL0Parser::typeDeclare()
 			{
 				error(PL0Error_unexpectedSymbol);
 			}
+			info.detailType = Types_alias;
+			m_curBlock->setRootType(info, token.name());
 		}
 	}
 }
 
 // <结构体类型> ::= RECORD; <变量及类型>{; <变量及类型>}; END
-void PL0Parser::recordDeclare()
+void PL0Parser::recordDeclare(SymbolInfo& root)
 {
 	// 进入该函数时，关键字 record 已经成功匹配
 	if (!match(L";"))
@@ -473,34 +498,47 @@ void PL0Parser::recordDeclare()
 		error(PL0Error_wantSemicolon);
 	}
 
+	int addr = 0;
 	do 
 	{
-		variableAndType();
+		SymbolInfo& info = variableAndType();
+		info.varInfo.belongType = root.id;
+		info.varInfo.address = addr;
+		addr += info.varInfo.size;
 		if (!match(L";"))
 		{
 			error(PL0Error_wantSemicolon);
 		}
 	} while (!matchKeyword(Keyword_end));
+
+	root.typeInfo.size = addr;
 }
 
 // <变量及类型> ::= <标识符>['['<区间说明>{, <区间说明>}']'] : <类型>
-void PL0Parser::variableAndType()
+/*
+	integer : 4
+	boolean : 1
+	char    : 1
+	real    : 8
+*/
+SymbolInfo& PL0Parser::variableAndType()
 {
 	Token& token = getIdentityToken();
+	int size = 1;
 	if (token.tokenType() == Structure_error)
 	{
 		error(PL0Error_wantIdentity);
 	}
 
-	m_symTable.putSymbol(token.name(), Structure_variable, 0);
+	SymbolInfo& res = m_curBlock->putVariableSymbol(token.name());
 	token.setTokenType(Structure_variable);
 
 	if (match(L"["))
 	{
-		rangeDeclare();
+		size = rangeDeclare();
 		while (match(L","))
 		{
-			rangeDeclare();
+			size *= rangeDeclare();
 		}
 
 		if (!match(L"]"))
@@ -519,23 +557,34 @@ void PL0Parser::variableAndType()
 	{
 		error(PL0Error_wantTypename);
 	}
+	else if (token.tokenType() == Structure_typename)
+	{
+		size *= m_curBlock->getTypeSize(token.name());
+		res.varInfo.size = size;
+		res.varInfo.type = token.detailType();
+	}
 }
 
 // <区间说明> ::= <整数或常量> : <整数或常量>
-void PL0Parser::rangeDeclare()
+int PL0Parser::rangeDeclare()
 {
-	integerOrConst();
+	int lb = integerOrConst();
 	
 	if (!match(L":"))
 	{
 		error(PL0Error_wantColon);
 	}
 
-	integerOrConst();
+	int ub = integerOrConst();
+
+	if (ub > lb)
+		return ub - lb + 1;
+
+	return 0;
 }
 
 // <整数或常量>
-void PL0Parser::integerOrConst()
+int PL0Parser::integerOrConst()
 {
 	Token token = getNumberToken();
 	if (token.tokenType() == Structure_error)
@@ -544,10 +593,25 @@ void PL0Parser::integerOrConst()
 	{
 		error(PL0Error_wantIntegerOrConst);
 	}
+
+	if (token.tokenType() == Structure_integer)
+	{
+		return _wtoi(token.name().c_str());
+	}
+	else if (token.tokenType() == Structure_constVariable)
+	{
+		SymbolInfo& info = m_curBlock->getSymbol(token.name());
+		if (info.constInfo.type == Types_integer)
+		{
+			return info.constInfo.value.intVal;
+		}
+	}
+
+	return 0;
 }
 
 // <枚举类型> ::= '{' <标识符> {, <标识符>} '}'
-void PL0Parser::enumeratedDeclare()
+void PL0Parser::enumeratedDeclare(SymbolInfo& root)
 {
 	// 进入这个代码的时候左花括号已经匹配成功了
 	Token& token = getIdentityToken();
@@ -556,8 +620,12 @@ void PL0Parser::enumeratedDeclare()
 		error(PL0Error_wantIdentity);
 	}
 
-	m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
+	int value = 0;
+	SymbolInfo& info = m_curBlock->putConstVariable(token.name());
 	token.setTokenType(Structure_constVariable);
+	info.constInfo.value.intVal = value;
+	info.constInfo.type = Types_integer;
+	info.constInfo.belongType = root.id;
 
 	while (match(L","))
 	{
@@ -566,8 +634,12 @@ void PL0Parser::enumeratedDeclare()
 		{
 			error(PL0Error_wantIdentity);
 		}
-		m_symTable.putSymbol(token2.name(), Structure_constVariable, 0);
-		token2.setTokenType(Structure_constVariable);
+		++value;
+		SymbolInfo& info2 = m_curBlock->putConstVariable(token.name());
+		token.setTokenType(Structure_constVariable);
+		info2.constInfo.value.intVal = value;
+		info2.constInfo.type = Types_integer;
+		info2.constInfo.belongType = root.id;
 	}
 
 	if (!match(L"}"))
@@ -607,21 +679,34 @@ void PL0Parser::constVarDefine()
 		error(PL0Error_wantEqualSymbol);
 	}
 
-	m_symTable.putSymbol(token.name(), Structure_constVariable, 0);
+	SymbolInfo& info = m_curBlock->putConstVaiableSymbol(token.name());
 	token.setTokenType(Structure_constVariable);
+	info.constInfo.belongType = -1;
 
-	literalValue();
+	BasicTypeValue value = literalValue();
+	info.constInfo.value = value;
 }
 
 // <字面量> ::= <有符号整数>|<有符号小数>|<字符串常量>
-void PL0Parser::literalValue()
+BasicTypeValue PL0Parser::literalValue()
 {
+	BasicTypeValue value;
+	value.type = -1;
+
 	if (isalnum(*m_p))
 	{
 		Token token = getNumberToken();
 		if (token.tokenType() == Structure_error)
 		{
 			error(PL0Error_wantNumber);
+		}
+		else
+		{
+			value.type = token.detailType();
+			if (value.type == Types_integer)
+				value.intVal = _wtoi(token.name().c_str());
+			else
+				value.realVal = _wtof(token.name().c_str());
 		}
 	}
 	else if (*m_p == '\"')
@@ -631,21 +716,42 @@ void PL0Parser::literalValue()
 		{
 			error(PL0Error_wantString);
 		}
+		else
+		{
+			value.type = Types_string;
+			value.strVal = putStringToConstArea(token.name());
+		}
 	}
 	else
 	{
 		error(PL0Error_wantIdentity);
 	}
+
+	return value;
 }
 
 // <变量说明部分> ::= VAR <变量及类型>{, <变量及类型>};
+/*
+	语句：
+		var <name_and_type>;
+	生成：
+		(ALLOC, size, 0, 0)
+	附加操作：
+		符号表中添加地址和长度
+*/
 void PL0Parser::variableDeclare()
 {
 	// 进入该函数则表明已经成功匹配 var
-	variableAndType();
+	int offset = m_ins.getStackTopOffset();
+	SymbolInfo& info = variableAndType();
+	info.varInfo.address = m_ins.generate(ALLOC, info.varInfo.size);
 
 	while (match(L","))
-		variableAndType();
+	{
+		SymbolInfo& info2 = variableAndType();
+		SymbolInfo& info2 = variableAndType();
+		info2.varInfo.address = m_ins.generate(ALLOC, info2.varInfo.size);
+	}
 
 	if (!match(L";"))
 	{
@@ -669,10 +775,35 @@ void PL0Parser::moduleDeclare()
 }
 
 // <过程说明部分> ::= <过程说明首部><分程序>
+/*
+	[return value]
+	[former ebp]      <-- ebp
+	[return address]
+	[arg1]
+	[arg2]
+	...
+	[arg n]
+	<block>
+
+	pop arg n
+	...
+	pop arg2
+	pop arg1
+	ret
+*/
 void PL0Parser::procedureDeclare()
 {
+	PL0Block* bb = new PL0Block;
+	bb->m_parent = m_curBlock;
+	m_curBlock = bb;
 	procedureHeader();
 	block();
+
+	// 退出过程，需要平衡占
+	m_curBlock->generateRet(m_ins);
+
+	// 返回上一级
+	m_curBlock = m_curBlock->m_parent;
 }
 
 // <过程说明首部> ::= PROCEDURE<标识符>['('<参数列表>')'];
@@ -685,7 +816,7 @@ void PL0Parser::procedureHeader()
 		error(PL0Error_wantIdentity);
 	}
 
-	m_symTable.putSymbol(token.name(), Structure_procudureName, 0);
+	m_curBlock->putProcedureNameSymbol(token.name());
 	token.setTokenType(Structure_procudureName);
 
 	if (match(L"("))
@@ -701,6 +832,8 @@ void PL0Parser::procedureHeader()
 	{
 		error(PL0Error_wantSemicolon);
 	}
+
+	m_curBlock->m_returnType = Types_void;
 }
 
 // <参数列表> ::= (<变量及类型> {, <变量及类型>})|<空>
@@ -710,19 +843,29 @@ void PL0Parser::paramList()
 	if (*m_p == L')')
 		return;
 
-	variableAndType();
+	m_curBlock->addParam(variableAndType());  // 内部设置地址
 	
 	while (match(L","))
 	{
-		variableAndType();
+		m_curBlock->addParam(variableAndType());
 	}
 }
 
 // <函数说明部分> ::= <函数说明首部><分程序>
 void PL0Parser::functionDeclare()
 {
+	PL0Block* bb = new PL0Block;
+	bb->m_parent = m_curBlock;
+	m_curBlock = bb;
 	functionHeader();
 	block();
+
+	// 退出过程，需要平衡占
+	m_curBlock->generateRet(m_ins);
+
+	// 返回上一级
+	m_curBlock = m_curBlock->m_parent;
+
 }
 
 // <函数说明首部> ::= FUNCTION<标识符>['('<参数列表>')']:<类型>;
@@ -735,7 +878,7 @@ void PL0Parser::functionHeader()
 		error(PL0Error_wantIdentity);
 	}
 
-	m_symTable.putSymbol(token.name(), Structure_functionName, 0);
+	m_curBlock->putFunctionNameSymbol(token.name());
 	token.setTokenType(Structure_functionName);
 
 	if (match(L"("))
@@ -758,6 +901,8 @@ void PL0Parser::functionHeader()
 	{
 		error(PL0Error_wantTypename);
 	}
+
+	m_curBlock->m_returnType = token->detailType();
 
 	if (!match(L";"))
 	{
@@ -840,7 +985,11 @@ void PL0Parser::ifStatement()
 		error(PL0Error_wantThen);
 	}
 
+	vector<int> jmpList;
+	int addr = m_ins.generate(JZ, 0);
 	statement();
+	jmpList.push_back(m_ins.generate(JMP, 0));
+	m_ins.get(addr).arg1 = m_ins.getNextInstructionAddress();
 
 	while (matchKeyword(Keyword_elseif))
 	{
@@ -851,16 +1000,25 @@ void PL0Parser::ifStatement()
 			error(PL0Error_wantThen);
 		}
 
+		addr = m_ins.generate(JZ, 0);
 		statement();
+		jmpList.push_back(m_ins.generate(JMP, 0));
+		m_ins.get(addr).arg1 = m_ins.getNextInstructionAddress();
 	}
 
 	if (matchKeyword(Keyword_else))
 	{
 		statement();
 	}
+
+	for (int jmp : jmpList)
+	{
+		m_ins.get(addr).arg1 = m_ins.getNextInstructionAddress();
+	}
 }
 
 // <条件表达式> ::= <或条件> {OR <或条件>}
+// 栈顶是比较结果
 void PL0Parser::conditionExpression()
 {
 	orCondition();
@@ -868,6 +1026,7 @@ void PL0Parser::conditionExpression()
 	while (matchKeyword(Keyword_or))
 	{
 		orCondition();
+		m_ins.generate(OR);
 	}
 }
 
@@ -879,6 +1038,7 @@ void PL0Parser::orCondition()
 	while (matchKeyword(Keyword_and))
 	{
 		condition();
+		m_ins.generate(AND);
 	}
 }
 
@@ -889,57 +1049,73 @@ void PL0Parser::condition()
 	if (matchKeyword(Keyword_odd) || match(L"!"))
 	{
 		expression();
+		m_ins.generate(NOT);
 	}
 	else
 	{
 		expression();
 
+		Command cmd;
 		if (match(L">="))
 		{
-
+			cmd = GE;
 		}
 		else if (match(L"<="))
 		{
-
+			cmd = LE;
 		}
 		else if (match(L"!=") || match(L"#"))
 		{
-
+			cmd = NE;
 		}
 		else if (match(L"==") || match(L"="))
 		{
-
+			cmd = EQ;
 		}
 		else if (match(L"<"))
 		{
-
+			cmd = LT;
 		}
 		else if (match(L">"))
 		{
-
+			cmd = GT;
 		}
 		else
 		{
 			error(PL0Error_wantConditionOperator);
+			cmd = NOOP;
 		}
 
 		expression();
+		m_ins.generate(cmd);
 	}
 }
 
 // <表达式> ::= [+|-]<项>{<加法运算符><项>}
 void PL0Parser::expression()
 {
-	if (match(L"+") || match(L"-"))
+	if (match(L"-"))
 	{
-		
+		m_ins.generate(NEG);
+	}
+	else if (match(L"+"))
+	{
 	}
 
 	factor();
 
-	while (match(L"+") || match(L"-"))
+	while (true)
 	{
+		bool add;
+		if (match(L"+"))
+			add = true;
+		else if (match(L"-"))
+			add = false;
+		else
+			break;
+
 		factor();
+		m_ins.generate(add ? ADD : SUB);
 	}
 }
 
@@ -948,9 +1124,31 @@ void PL0Parser::factor()
 {
 	atom();
 
-	while (match(L"*") || match(L"/"))
+	while (true)
 	{
+		int op;
+		if (match(L"+"))
+			op = 0;
+		else if (match(L"-"))
+			op = 1;
+		else if (match(L"%"))
+			op = 2;
+		else
+			break;
+
 		atom();
+		switch (op)
+		{
+		case 0:
+			m_ins.generate(MUL);
+			break;
+		case 1:
+			m_ins.generate(DIV);
+			break;
+		case 2:
+			m_ins.generate(MOD);
+			break;
+		}
 	}
 }
 
@@ -973,7 +1171,8 @@ void PL0Parser::atom()
 	}
 	else if (isdigit(*m_p) || *m_p == '\"')
 	{
-		literalValue();
+		BasicTypeValue value = literalValue();
+		m_ins.generate(PUSH, value.type == Types_integer ? value.intVal : value.realVal);
 	}
 	else
 	{
@@ -990,6 +1189,7 @@ void PL0Parser::atom()
 			break;
 		case Structure_variable:
 			leftValueExpression(false);
+			m_ins.generate(LOD);
 			break;
 		}
 	}
@@ -1009,13 +1209,25 @@ void PL0Parser::leftValueExpression(bool needToken)
 		error(PL0Error_wantVariable);
 	}
 
+	SymbolInfo& info = m_curBlock->get(token.name());
+	int offset = 0;
+
 	if (match(L"["))
 	{
+		m_ins.generate(PUSH, info.varInfo.address);
+		int d = 0;
 		expression();
+		m_ins.generate(PUSH, info.varInfo.diamonds[d++]);
+		m_ins.generate(MUL);
 		while (match(L","))
 		{
 			expression();
+			m_ins.generate(PUSH, info.varInfo.diamonds[d++]);
+			m_ins.generate(MUL);
+			m_ins.generate(ADD);
 		}
+
+		m_ins.generate(ADD);
 
 		if (!match(L"]"))
 		{
@@ -1026,12 +1238,14 @@ void PL0Parser::leftValueExpression(bool needToken)
 	if (match(L"."))
 	{
 		leftValueExpression(true);
+		m_ins.generate(ADD);
 	}
 }
 
 // <CASE条件语句> ::= CASE <表达式> OF <CASE从句>{; <CASE从句>} [; ELSE <语句>]; END
 void PL0Parser::caseStatement()
 {
+	vector<int> jmpList;
 	// 进入该函数表明 case 已经被正确识别
 	expression();
 
@@ -1041,7 +1255,7 @@ void PL0Parser::caseStatement()
 	}
 
 	do {
-		caseSubStatement();
+		jmpList.push_back(caseSubStatement());
 		if (!match(L";"))
 		{
 			error(PL0Error_wantSemicolon);
@@ -1061,12 +1275,18 @@ void PL0Parser::caseStatement()
 			error(PL0Error_wantEnd);
 		}
 	}
+
+	for (int jmp : jmpList)
+	{
+		m_ins.get(jmp).arg1 = m_ins.getNextInstructionAddress();
+	}
 }
 
 // <CASE从句> ::= (<常量>|<字面量>):<语句>
-void PL0Parser::caseSubStatement()
+int PL0Parser::caseSubStatement()
 {
 	Token token;
+	int addr = -1;
 	if (isalpha(*m_p) || *m_p == '_')
 	{
 		token = getConstNameToken();
@@ -1074,6 +1294,9 @@ void PL0Parser::caseSubStatement()
 		{
 			error(PL0Error_wantConstName);
 		}
+		SymbolInfo& info = m_curBlock->getSymbol(token.name());
+		m_ins.generate(CMP, info.constInfo.value.intVal);
+		addr = m_ins.generate(JNZ, 0);
 	}
 	else if (isdigit(*m_p))
 	{
@@ -1082,6 +1305,8 @@ void PL0Parser::caseSubStatement()
 		{
 			error(PL0Error_wantNumber);
 		}
+		m_ins.generate(CMP, _wtoi(token.name().c_str()));
+		addr = m_ins.generate(JNZ, 0);
 	}
 	else
 	{
@@ -1094,6 +1319,15 @@ void PL0Parser::caseSubStatement()
 	}
 
 	statement();
+
+	int ret = m_ins.generate(JMP, 0);
+
+	if (addr != -1)
+	{
+		m_ins.get(addr).arg1 = m_ins.getNextInstructionAddress();
+	}
+
+	return ret;
 }
 
 // <读语句> ::= READ'('<左值表达式>{, <左值表达式>}')'
@@ -1108,6 +1342,7 @@ void PL0Parser::readStatement()
 	do 
 	{
 		leftValueExpression(true);
+		m_ins.generate(READ);
 	} while (match(L","));
 
 	if (!match(L")"))
@@ -1128,6 +1363,7 @@ void PL0Parser::writeStatement()
 	do
 	{
 		expression();
+		m_ins.generate(WRITE);
 	} while (match(L","));
 
 	if (!match(L")"))
@@ -1139,7 +1375,9 @@ void PL0Parser::writeStatement()
 // <当型循环语句> ::= WHILE<条件表达式>DO<语句>
 void PL0Parser::whileStatement()
 {
+	int addr1 = m_ins.getNextInstructionAddress();
 	conditionExpression();
+	int addr2 = m_ins.generate(JZ, 0);
 	
 	if (!matchKeyword(Keyword_do))
 	{
@@ -1147,12 +1385,15 @@ void PL0Parser::whileStatement()
 	}
 
 	statement();
+	m_ins.generate(JMP, addr1);
+	m_ins.get(addr2).arg1 = m_ins.getNextInstructionAddress();
 }
 
 // <直到型循环语句> ::= REPEAT <语句> UNTIL <条件表达式>
 void PL0Parser::repeatStatement()
 {
 	// 进入这个函数的时候，repeat 关键字已经成功识别
+	int addr1 = m_ins.getNextInstructionAddress();
 	statement();
 
 	if (!matchKeyword(Keyword_until))
@@ -1161,6 +1402,7 @@ void PL0Parser::repeatStatement()
 	}
 
 	conditionExpression();
+	m_ins.generate(JZ, addr1);
 }
 
 // <FOR循环语句> ::= FOR <左值表达式> := <表达式> [STEP <表达式>] UNTIL <表达式> DO <语句>
@@ -1175,10 +1417,15 @@ void PL0Parser::forStatement()
 	}
 
 	expression();
+	m_ins.generate(STO);
 
 	if (matchKeyword(Keyword_step))
 	{
 		expression();
+	}
+	else
+	{
+		m_ins.generate(PUSH, 1);
 	}
 
 	if (!matchKeyword(Keyword_until))
@@ -1193,7 +1440,14 @@ void PL0Parser::forStatement()
 		error(PL0Error_wantDo);
 	}
 
+	int addr = m_ins.getNextInstructionAddress();
 	statement();
+	m_ins.generate(SADD, 1, 2);
+	m_ins.generate(PUSH_VAR, 2);
+	m_ins.generate(JLE, addr);
+	m_ins.generate(POP);
+	m_ins.generate(POP);
+	m_ins.generate(POP);
 }
 
 // <复合语句> ::= BEGIN<语句>{; <语句>}END
@@ -1221,16 +1475,39 @@ void PL0Parser::returnStatement()
 {
 	// 进入刚函数的时候，return 关键字已经成功匹配
 	expression();
+	m_curBlock->generateReturnInstruction();
 }
 
 // <调用语句> ::= [CALL]<标识符>['('[<表达式> {,<表达式>}'])']
+/*
+	调用函数的过程：
+	push <return value>
+	push ebp
+	mov ebp, esp
+	push <return address>
+	push arg1
+	push arg2
+	...
+	push argn
+	jmp <function address>
+*/
 void PL0Parser::callStatement()
 {
 	Token token = getLastToken();
+	int addr;
 
 	if (token.detailType() != Structure_functionName
 		&& token.detailType() != Structure_procudureName)
 	{
+		if (token.detailType() == Structure_functionName)
+		{
+			m_ins.generate(PUSH, 0);
+		}
+		m_ins.generate(PUSH_EBP);
+		m_ins.generate(RESET_EBP);
+
+		addr = m_ins.generate(PUSH, 0);
+
 		if (match(L"("))
 		{
 			if (match(L")"))
@@ -1246,6 +1523,10 @@ void PL0Parser::callStatement()
 				error(PL0Error_wantRParen);
 			}
 		}
+
+		SymbolInfo& info = m_curBlock->getSymbol(token.name());
+		m_ins.generate(JMP, info.funInfo.address);
+		m_ins.get(addr).arg1 = m_ins.getNextInstructionAddress();
 	}
 	else
 	{
@@ -1264,6 +1545,8 @@ void PL0Parser::assignStatement()
 	}
 
 	expression();
+
+	m_ins.generate(STO);
 }
 
 void PL0Parser::resetContents()
@@ -1276,6 +1559,5 @@ void PL0Parser::resetContents()
 	m_savedPos = 0;
 	m_savedRow = 0;
 	m_savedCol = 0;
-	m_symTable.clear();
 }
 

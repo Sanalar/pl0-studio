@@ -51,6 +51,10 @@ enum Keyword
 	Keyword_return,
 	Keyword_odd,
 	Keyword_step,
+	Keyword_integer,
+	Keyword_real,
+	Keyword_char,
+	Keyword_boolean,
 };
 
 enum Types
@@ -59,6 +63,17 @@ enum Types
 	Types_real,
 	Types_boolean,
 	Types_char,
+	Types_record,
+	Types_enumerated,
+	Types_alias,
+	Types_void,
+	Types_string,
+};
+
+enum VarType
+{
+	VarType_alone = 301,
+	VarType_member,
 };
 
 class Token
@@ -93,13 +108,39 @@ protected:
 
 enum Command
 {
-	PUSH_NUM,		///< 将一个立即数压入栈顶
+	PUSH,			///< 将一个立即数压入栈顶
 	PUSH_VAR,		///< 将一个变量的值入栈
 	ADD,			///< 将栈顶与次栈顶的数相加，结果放到次栈顶，并弹出栈顶，不加特殊说明，所有算数运算都是这个规则
 	SUB,			///< 次栈顶 = 次栈顶 - 栈顶
 	MUL,			///< 次栈顶 = 次栈顶 * 栈顶
 	DIV,			///< 次栈顶 = 次栈顶 / 栈顶
 	MOD,			///< 次栈顶 = 次栈顶 % 栈顶
+	EXIT,			///< 停机指令
+	ALLOC,
+	JZ,
+	JMP,
+	OR,
+	AND,
+	NOT,
+	GE,
+	LE,
+	NE,
+	GT,
+	LT,
+	EQ,
+	NOOP,
+	NEG,
+	LOD,
+	CMP,
+	JNZ,
+	READ,
+	WRITE,
+	SADD,
+	JLE,
+	POP,
+	PUSH_EBP,
+	RESET_EBP,
+	STO,
 };
 
 struct Instruction
